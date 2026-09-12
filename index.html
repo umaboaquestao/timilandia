@@ -27,6 +27,10 @@
         <canvas id="game-canvas" aria-label="Mapa jogável da TiMIlandia"></canvas>
         <div class="map-label map-label-north">Jardins do Futuro</div>
         <div class="map-label map-label-south">Estação TiMI</div>
+        <aside class="mission-board" aria-label="Missões da viagem">
+          <div class="mission-board-heading"><span>Missões</span><small>esta viagem</small></div>
+          <div id="mission-list"></div>
+        </aside>
         <div class="controls-hint"><span class="key-cluster"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>ou setas para pedalar</span></div>
         <div class="touch-controls" aria-label="Controlos táteis">
           <button type="button" data-control="arrowup" aria-label="Avançar">▲</button>
@@ -38,6 +42,11 @@
             <h1>Fim de viagem</h1>
             <p>A poluição travou a tua bicicleta. Recupera o fôlego e tenta outra rota.</p>
             <p class="final-score">Pontuação <strong id="final-score">0000</strong></p>
+            <form id="score-form" class="score-form">
+              <label for="player-name">Regista o teu resultado</label>
+              <div><input id="player-name" name="player-name" maxlength="14" placeholder="O teu nome" autocomplete="nickname" required /><button type="submit">Guardar</button></div>
+            </form>
+            <div id="leaderboard" class="leaderboard" hidden></div>
             <button id="restart-button" type="button">Reiniciar viagem <span>↗</span></button>
           </div>
         </div>

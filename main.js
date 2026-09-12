@@ -7,6 +7,17 @@ const coinsValue = document.querySelector('#coins-value');
 const livesValue = document.querySelector('#lives-value');
 const scoreValue = document.querySelector('#score-value');
 const finalScore = document.querySelector('#final-score');
+const missionList = document.querySelector('#mission-list');
+const scoreForm = document.querySelector('#score-form');
+const playerName = document.querySelector('#player-name');
+const leaderboard = document.querySelector('#leaderboard');
+
+const missions = [
+  { id: 'energy', label: 'Recolhe energia', target: 4, unit: '✦', value: (game) => game.collectedEnergy },
+  { id: 'coins', label: 'Apanha moedas', target: 3, unit: '●', value: (game) => game.collectedCoins },
+  { id: 'distance', label: 'Pedala pela cidade', target: 900, unit: 'm', value: (game) => Math.floor(game.distanceTravelled) },
+];
+const leaderboardKey = 'timilandia-top-scores';
 
 const world = { width: 2400, height: 1600 };
 const roadLines = [
@@ -56,9 +67,15 @@ function newGame() {
     collectedCoins: 0,
     lives: 3,
     score: 0,
+    distanceTravelled: 0,
+    completedMissions: new Set(),
     running: true,
   };
   gameOverPanel.hidden = true;
+  leaderboard.hidden = true;
+  scoreForm.hidden = false;
+  playerName.value = '';
+  renderMissions();
   updateHud();
   cancelAnimationFrame(animationFrame);
   lastTime = performance.now();
@@ -100,6 +117,7 @@ function update(delta) {
   const nextY = player.y + vertical * player.speed * delta;
   player.x = Math.max(player.radius + 10, Math.min(world.width - player.radius - 10, nextX));
   player.y = Math.max(player.radius + 10, Math.min(world.height - player.radius - 10, nextY));
+  state.distanceTravelled += Math.hypot(horizontal * player.speed * delta, vertical * player.speed * delta);
   player.invulnerable = Math.max(0, player.invulnerable - delta);
 
   collectItems(state.energy, 30, () => { state.collectedEnergy += 1; state.score += 100; });
@@ -119,6 +137,7 @@ function update(delta) {
   state.camera.y += ((player.y - viewportHeight() / 2) - state.camera.y) * Math.min(delta * 5, 1);
   state.camera.x = Math.max(0, Math.min(world.width - viewportWidth(), state.camera.x));
   state.camera.y = Math.max(0, Math.min(world.height - viewportHeight(), state.camera.y));
+  checkMissions();
   updateHud();
 }
 
@@ -136,6 +155,46 @@ function endGame() {
   state.running = false;
   finalScore.textContent = String(state.score).padStart(4, '0');
   gameOverPanel.hidden = false;
+}
+
+function renderMissions() {
+  missionList.innerHTML = missions.map((mission) => `<div class="mission-item" data-mission="${mission.id}"><p><span>${mission.label}</span><span class="mission-count">0/${mission.target}${mission.unit === 'm' ? 'm' : ''}</span></p><div class="mission-progress"><span style="width: 0%"></span></div></div>`).join('');
+}
+
+function checkMissions() {
+  for (const mission of missions) {
+    const current = Math.min(mission.target, mission.value(state));
+    const item = missionList.querySelector(`[data-mission="${mission.id}"]`);
+    if (!item) continue;
+    item.querySelector('.mission-count').textContent = `${current}/${mission.target}${mission.unit === 'm' ? 'm' : ''}`;
+    item.querySelector('.mission-progress span').style.width = `${(current / mission.target) * 100}%`;
+    if (current >= mission.target && !state.completedMissions.has(mission.id)) {
+      state.completedMissions.add(mission.id);
+      state.score += 250;
+      item.classList.add('complete');
+      item.querySelector('.mission-count').textContent = 'Feita!';
+    }
+  }
+}
+
+function getScores() {
+  try { return JSON.parse(localStorage.getItem(leaderboardKey) || '[]'); } catch { return []; }
+}
+
+function saveScore(name) {
+  const scores = [...getScores(), { name: name.trim().slice(0, 14) || 'Ciclista', score: state.score }]
+    .sort((first, second) => second.score - first.score).slice(0, 10);
+  try { localStorage.setItem(leaderboardKey, JSON.stringify(scores)); } catch { }
+  renderLeaderboard(scores);
+}
+
+function renderLeaderboard(scores = getScores()) {
+  leaderboard.innerHTML = `<h2>Top 10 da TiMIlandia</h2><ol>${scores.map((entry) => `<li><span>${escapeHtml(entry.name)}</span><strong>${String(entry.score).padStart(4, '0')}</strong></li>`).join('')}</ol>`;
+  leaderboard.hidden = false;
+}
+
+function escapeHtml(value) {
+  return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
 }
 
 function updateHud() {
@@ -231,6 +290,11 @@ window.addEventListener('resize', resizeCanvas);
 window.addEventListener('keydown', (event) => { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) event.preventDefault(); keys.add(event.key.toLowerCase()); });
 window.addEventListener('keyup', (event) => keys.delete(event.key.toLowerCase()));
 restartButton.addEventListener('click', newGame);
+scoreForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  saveScore(playerName.value);
+  scoreForm.hidden = true;
+});
 document.querySelectorAll('[data-control]').forEach((button) => {
   const control = button.dataset.control;
   button.addEventListener('pointerdown', (event) => { event.preventDefault(); keys.add(control); });
