@@ -2,6 +2,8 @@ import { questions as defaultQuestions } from './questions.js';
 
 const app = document.querySelector('#app');
 const storageKey = 'timi-quiz-questions-v1';
+const adminPassword = '654321';
+const adminSessionKey = 'timi-quiz-admin-access';
 let quizQuestions = loadQuestions();
 let currentQuestion = 0;
 let score = 0;
@@ -50,6 +52,15 @@ function renderResult() {
   app.innerHTML = `<div class="shell result-shell">${brand()}<main class="result-card"><div class="eyebrow">Viagem concluída</div><h1>Boa viagem, ${escapeHtml(playerName || 'ciclista')}!</h1><p>Terminaste o quiz TiMI. Cada resposta é uma escolha por uma cidade mais simples e sustentável.</p><div class="score-display"><small>A tua pontuação</small><strong>${String(score).padStart(3, '0')}</strong><span>até ${maxScore} pontos</span></div><button id="restart-button" class="primary-button" type="button">Jogar novamente <b>→</b></button></main></div>`;
   document.querySelector('#restart-button').addEventListener('click', renderHome);
 }
+function renderAdminLogin() {
+  clearInterval(timerId);
+  app.innerHTML = `<div class="shell result-shell">${brand()}<main class="result-card admin-login"><div class="eyebrow">Área reservada</div><h1>Modo administração</h1><p>Introduz a senha para gerir as perguntas e respostas do quiz.</p><form id="admin-login-form"><label for="admin-password">Senha</label><input id="admin-password" type="password" inputmode="numeric" autocomplete="current-password" required autofocus /><p id="admin-error" class="admin-error" hidden>Senha incorreta. Tenta novamente.</p><button class="primary-button" type="submit">Entrar <b>→</b></button></form></main></div>`;
+  document.querySelector('#admin-login-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (document.querySelector('#admin-password').value === adminPassword) { sessionStorage.setItem(adminSessionKey, 'true'); renderAdmin(); return; }
+    document.querySelector('#admin-error').hidden = false;
+  });
+}
 function renderAdmin() {
   clearInterval(timerId);
   app.innerHTML = `<div class="shell admin-shell">${brand()}<header class="admin-header"><div><div class="eyebrow">Área de administração</div><h1>Perguntas do quiz</h1><p>Altera, adiciona ou remove perguntas. Guarda no browser e exporta o ficheiro para publicar a versão final.</p></div><a class="secondary-button" href="${escapeHtml(quizUrl())}">Ver quiz →</a></header><div class="admin-actions"><button id="add-question" class="primary-button" type="button">+ Adicionar pergunta</button><button id="export-questions" class="secondary-button" type="button">Exportar perguntas</button><label class="secondary-button import-label">Importar perguntas<input id="import-questions" type="file" accept="application/json" hidden /></label><button id="reset-questions" class="text-button" type="button">Repor originais</button></div><p class="save-status" id="save-status">${quizQuestions.length} perguntas guardadas neste browser.</p><section id="question-editor" class="question-editor"></section></div>`;
@@ -68,5 +79,7 @@ function renderQuestionEditor() {
 function handleEditorChange(event) { const field = event.target.dataset.field; if (!field) return; const index = Number(event.target.closest('.editor-card').dataset.index); const question = quizQuestions[index]; if (field === 'answer') question.answers[Number(event.target.dataset.answerIndex)] = event.target.value; else if (field === 'correct' || field === 'time') question[field] = Number(event.target.value); else question[field] = event.target.value; saveQuestions(); document.querySelector('#save-status').textContent = `Alterações guardadas · ${quizQuestions.length} perguntas.`; }
 function exportQuestions() { const blob = new Blob([JSON.stringify(quizQuestions, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'timi-quiz-perguntas.json'; link.click(); URL.revokeObjectURL(url); }
 function importQuestions(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { try { const loaded = JSON.parse(reader.result); const valid = Array.isArray(loaded) ? loaded.map(normalizeQuestion).filter(Boolean) : []; if (!valid.length || valid.length !== loaded.length) throw new Error(); quizQuestions = valid; saveQuestions(); renderAdmin(); } catch { window.alert('O ficheiro não contém perguntas válidas.'); } }; reader.readAsText(file); }
-if (new URLSearchParams(window.location.search).has('admin')) renderAdmin(); else renderHome();
+if (new URLSearchParams(window.location.search).has('admin')) {
+  if (sessionStorage.getItem(adminSessionKey) === 'true') renderAdmin(); else renderAdminLogin();
+} else renderHome();
 
