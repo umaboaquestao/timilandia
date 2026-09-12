@@ -5,15 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#092b3a" />
     <title>TiMIlandia | Cidade em movimento</title>
-    <link rel="stylesheet" href="./timilandia-v7.css" />
+    <link rel="stylesheet" href="./timilandia-v8.css" />
   </head>
   <body>
     <main class="game-shell">
       <header class="topbar">
-        <div class="brand-lockup" aria-label="TiMIlandia">
-          <span class="brand-mark">T</span>
-          <span><strong>TiMI</strong><small>landia</small></span>
-        </div>
+        <div class="brand-lockup" aria-label="TiMIlandia"><span class="brand-mark">T</span><span><strong>TiMI</strong><small>landia</small></span></div>
         <p class="mission">Pedala pelo amanhã</p>
         <div class="status-strip" aria-label="Estado do jogo">
           <div class="stat stat-energy"><span class="stat-icon">✦</span><span><small>Energia</small><b id="energy-value">0</b></span></div>
@@ -25,33 +22,13 @@
       </header>
       <section class="play-area">
         <canvas id="game-canvas" aria-label="Mapa jogável da TiMIlandia"></canvas>
-        <div class="map-label map-label-north">Jardins do Futuro</div>
-        <div class="map-label map-label-south">Estação TiMI</div>
-        <aside class="mission-board" aria-label="Missões da viagem">
-          <div class="mission-board-heading"><span>Missões</span><small>esta viagem</small></div>
-          <div id="mission-list"></div>
-        </aside>
+        <div class="map-label map-label-north">Jardins do Futuro</div><div class="map-label map-label-south">Estação TiMI</div>
+        <aside class="mission-board" aria-label="Missões da viagem"><div class="mission-board-heading"><span>Missões</span><small>esta viagem</small></div><div id="mission-list"></div></aside>
         <div class="controls-hint"><span class="key-cluster"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>ou setas para pedalar</span></div>
-        <div class="touch-controls" aria-label="Controlos táteis">
-          <button type="button" data-control="arrowup" aria-label="Avançar">▲</button>
-          <div><button type="button" data-control="arrowleft" aria-label="Virar à esquerda">◀</button><button type="button" data-control="arrowdown" aria-label="Recuar">▼</button><button type="button" data-control="arrowright" aria-label="Virar à direita">▶</button></div>
-        </div>
-        <div id="game-over" class="game-over" hidden>
-          <div class="game-over-card">
-            <span class="over-kicker">A cidade precisa de ti</span>
-            <h1>Fim de viagem</h1>
-            <p>A poluição travou a tua bicicleta. Recupera o fôlego e tenta outra rota.</p>
-            <p class="final-score">Pontuação <strong id="final-score">0000</strong></p>
-            <form id="score-form" class="score-form">
-              <label for="player-name">Regista o teu resultado</label>
-              <div><input id="player-name" name="player-name" maxlength="14" placeholder="O teu nome" autocomplete="nickname" required /><button type="submit">Guardar</button></div>
-            </form>
-            <div id="leaderboard" class="leaderboard" hidden></div>
-            <button id="restart-button" type="button">Reiniciar viagem <span>↗</span></button>
-          </div>
-        </div>
+        <div class="touch-controls" aria-label="Controlos táteis"><button type="button" data-control="arrowup" aria-label="Avançar">▲</button><div><button type="button" data-control="arrowleft" aria-label="Virar à esquerda">◀</button><button type="button" data-control="arrowdown" aria-label="Recuar">▼</button><button type="button" data-control="arrowright" aria-label="Virar à direita">▶</button></div></div>
+        <div id="game-over" class="game-over" hidden><div class="game-over-card"><span class="over-kicker">A cidade precisa de ti</span><h1>Fim de viagem</h1><p>A poluição travou a tua bicicleta. Recupera o fôlego e tenta outra rota.</p><p class="final-score">Pontuação <strong id="final-score">0000</strong></p><form id="score-form" class="score-form"><label for="player-name">Regista o teu resultado</label><div><input id="player-name" name="player-name" maxlength="14" placeholder="O teu nome" autocomplete="nickname" required /><button type="submit">Guardar</button></div></form><div id="leaderboard" class="leaderboard" hidden></div><button id="restart-button" type="button">Reiniciar viagem <span>↗</span></button></div></div>
       </section>
     </main>
-    <script type="module" src="./timilandia-v7.js"></script>
+    <script type="module" src="./timilandia-v8.js"></script>
   </body>
 </html>
