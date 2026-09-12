@@ -5,6 +5,7 @@ const restartButton = document.querySelector('#restart-button');
 const energyValue = document.querySelector('#energy-value');
 const coinsValue = document.querySelector('#coins-value');
 const livesValue = document.querySelector('#lives-value');
+const timerValue = document.querySelector('#timer-value');
 const scoreValue = document.querySelector('#score-value');
 const finalScore = document.querySelector('#final-score');
 const missionList = document.querySelector('#mission-list');
@@ -15,9 +16,10 @@ const leaderboard = document.querySelector('#leaderboard');
 const missions = [
   { id: 'energy', label: 'Recolhe energia', target: 4, unit: '✦', value: (game) => game.collectedEnergy },
   { id: 'coins', label: 'Apanha moedas', target: 3, unit: '●', value: (game) => game.collectedCoins },
-  { id: 'distance', label: 'Pedala pela cidade', target: 900, unit: 'm', value: (game) => Math.floor(game.distanceTravelled) },
+  { id: 'distance', label: 'Pedala pela cidade', target: 10000, unit: 'km', value: (game) => Math.floor(game.distanceTravelled) },
 ];
 const leaderboardKey = 'timilandia-top-scores';
+const journeyTimeLimit = 120;
 
 const world = { width: 2400, height: 1600 };
 const roadLines = [
@@ -59,6 +61,7 @@ let state;
 function newGame() {
   state = {
     player: { x: 1180, y: 820, angle: 0, speed: 0, radius: 20, invulnerable: 0 },
+    dog: { x: 1030, y: 820, radius: 24, pulse: Math.random() * Math.PI * 2 },
     energy: startingEnergy.map(([x, y]) => ({ x, y, radius: 17, pulse: Math.random() * Math.PI * 2 })),
     coins: startingCoins.map(([x, y]) => ({ x, y, radius: 14, pulse: Math.random() * Math.PI * 2 })),
     pollution: startingPollution.map((item) => ({ ...item, pulse: Math.random() * Math.PI * 2 })),
@@ -68,6 +71,7 @@ function newGame() {
     lives: 3,
     score: 0,
     distanceTravelled: 0,
+    timeRemaining: journeyTimeLimit,
     completedMissions: new Set(),
     running: true,
   };
@@ -119,6 +123,8 @@ function update(delta) {
   player.y = Math.max(player.radius + 10, Math.min(world.height - player.radius - 10, nextY));
   state.distanceTravelled += Math.hypot(horizontal * player.speed * delta, vertical * player.speed * delta);
   player.invulnerable = Math.max(0, player.invulnerable - delta);
+  state.timeRemaining = Math.max(0, state.timeRemaining - delta);
+  updateDog(delta);
 
   collectItems(state.energy, 30, () => { state.collectedEnergy += 1; state.score += 100; });
   collectItems(state.coins, 29, () => { state.collectedCoins += 1; state.score += 150; });
@@ -129,10 +135,23 @@ function update(delta) {
       player.invulnerable = 1.35;
       player.x = 1180;
       player.y = 820;
+      state.dog.x = 1030;
+      state.dog.y = 820;
       if (state.lives <= 0) endGame();
       break;
     }
   }
+  if (player.invulnerable <= 0 && distance(player, state.dog) < player.radius + state.dog.radius - 3) {
+    state.lives -= 1;
+    state.score = Math.max(0, state.score - 100);
+    player.invulnerable = 1.35;
+    player.x = 1180;
+    player.y = 820;
+    state.dog.x = 1030;
+    state.dog.y = 820;
+    if (state.lives <= 0) endGame();
+  }
+  if (state.timeRemaining <= 0) endGame();
   state.camera.x += ((player.x - viewportWidth() / 2) - state.camera.x) * Math.min(delta * 5, 1);
   state.camera.y += ((player.y - viewportHeight() / 2) - state.camera.y) * Math.min(delta * 5, 1);
   state.camera.x = Math.max(0, Math.min(world.width - viewportWidth(), state.camera.x));
@@ -151,6 +170,14 @@ function collectItems(items, collisionDistance, onCollect) {
   }
 }
 
+function updateDog(delta) {
+  const dog = state.dog;
+  const player = state.player;
+  const angle = Math.atan2(player.y - dog.y, player.x - dog.x);
+  dog.x += Math.cos(angle) * 145 * delta;
+  dog.y += Math.sin(angle) * 145 * delta;
+}
+
 function endGame() {
   state.running = false;
   finalScore.textContent = String(state.score).padStart(4, '0');
@@ -158,7 +185,7 @@ function endGame() {
 }
 
 function renderMissions() {
-  missionList.innerHTML = missions.map((mission) => `<div class="mission-item" data-mission="${mission.id}"><p><span>${mission.label}</span><span class="mission-count">0/${mission.target}${mission.unit === 'm' ? 'm' : ''}</span></p><div class="mission-progress"><span style="width: 0%"></span></div></div>`).join('');
+  missionList.innerHTML = missions.map((mission) => `<div class="mission-item" data-mission="${mission.id}"><p><span>${mission.label}</span><span class="mission-count">${mission.unit === 'km' ? '0.0/10 km' : `0/${mission.target}`}</span></p><div class="mission-progress"><span style="width: 0%"></span></div></div>`).join('');
 }
 
 function checkMissions() {
@@ -166,7 +193,7 @@ function checkMissions() {
     const current = Math.min(mission.target, mission.value(state));
     const item = missionList.querySelector(`[data-mission="${mission.id}"]`);
     if (!item) continue;
-    item.querySelector('.mission-count').textContent = `${current}/${mission.target}${mission.unit === 'm' ? 'm' : ''}`;
+    item.querySelector('.mission-count').textContent = mission.unit === 'km' ? `${(current / 1000).toFixed(1)}/10 km` : `${current}/${mission.target}`;
     item.querySelector('.mission-progress span').style.width = `${(current / mission.target) * 100}%`;
     if (current >= mission.target && !state.completedMissions.has(mission.id)) {
       state.completedMissions.add(mission.id);
@@ -201,6 +228,9 @@ function updateHud() {
   energyValue.textContent = state.collectedEnergy;
   coinsValue.textContent = state.collectedCoins;
   livesValue.textContent = state.lives;
+  const seconds = Math.min(journeyTimeLimit, Math.ceil(state.timeRemaining));
+  timerValue.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  timerValue.parentElement.parentElement.classList.toggle('urgent', seconds <= 20);
   scoreValue.textContent = String(state.score).padStart(4, '0');
 }
 
@@ -229,6 +259,7 @@ function drawWorld(time) {
   for (const item of state.coins) drawCoin(item, time);
   for (const hazard of state.pollution) drawPollution(hazard, time);
   drawStation();
+  drawDog(time);
 }
 
 function drawRoad(road) {
@@ -280,6 +311,44 @@ function drawPlayer(time) {
   const player = state.player;
   if (player.invulnerable > 0 && Math.floor(time * 12) % 2 === 0) return;
   context.save(); context.translate(player.x, player.y); context.rotate(player.angle); context.shadowColor = '#071d2a'; context.shadowBlur = 8; context.strokeStyle = '#f7ffe9'; context.lineWidth = 5; context.beginPath(); context.arc(-14, 0, 12, 0, Math.PI * 2); context.arc(16, 0, 12, 0, Math.PI * 2); context.stroke(); context.shadowBlur = 0; context.strokeStyle = '#f4d35e'; context.lineWidth = 5; context.beginPath(); context.moveTo(-14, 0); context.lineTo(-2, -15); context.lineTo(10, 0); context.lineTo(-14, 0); context.moveTo(-2, -15); context.lineTo(16, 0); context.moveTo(-2, -15); context.lineTo(7, -20); context.stroke(); context.fillStyle = '#c9fb83'; context.beginPath(); context.arc(2, -10, 8, 0, Math.PI * 2); context.fill(); context.fillStyle = '#f07c67'; context.beginPath(); context.arc(8, -22, 5, 0, Math.PI * 2); context.fill(); context.restore();
+}
+
+function drawDog(time) {
+  const dog = state.dog;
+  const player = state.player;
+  const angle = Math.atan2(player.y - dog.y, player.x - dog.x);
+  const bounce = Math.sin(time * 10 + dog.pulse) * 2;
+  context.save();
+  context.translate(dog.x, dog.y + bounce);
+  context.rotate(angle);
+  context.shadowColor = '#071d2a';
+  context.shadowBlur = 9;
+  context.fillStyle = '#f4a261';
+  context.beginPath();
+  context.ellipse(0, 0, 24, 17, 0, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = '#d96b4c';
+  context.beginPath();
+  context.ellipse(19, -2, 15, 13, 0, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = '#7b303d';
+  context.beginPath();
+  context.ellipse(23, -12, 7, 13, -.4, 0, Math.PI * 2);
+  context.ellipse(23, 8, 7, 13, .4, 0, Math.PI * 2);
+  context.fill();
+  context.shadowBlur = 0;
+  context.fillStyle = '#fff8df';
+  context.beginPath();
+  context.arc(24, -6, 3, 0, Math.PI * 2);
+  context.arc(24, 6, 3, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = '#092b3a';
+  context.beginPath();
+  context.arc(25, -6, 1.5, 0, Math.PI * 2);
+  context.arc(25, 6, 1.5, 0, Math.PI * 2);
+  context.arc(34, 0, 4, 0, Math.PI * 2);
+  context.fill();
+  context.restore();
 }
 
 function distance(first, second) { return Math.hypot(first.x - second.x, first.y - second.y); }
