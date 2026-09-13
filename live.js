@@ -8,7 +8,7 @@ let client; let liveSession; let player; let isHost = false; let liveChannel;
 
 const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
 const brand = () => '<header class="brand"><span class="brand-mark">T</span><div><strong>TiMI</strong><small>QUIZ LIVE</small></div></header>';
-async function db() { if (!client) { const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'); client = createClient(projectUrl, anonKey); } return client; }
+async function advanceDuplicate() {
 function questions() { try { const saved = JSON.parse(localStorage.getItem('timi-quiz-questions-v1')); return Array.isArray(saved) && saved.length ? saved : defaultQuestions; } catch { return defaultQuestions; } }
 async function advance() { const supabase = await db(); const all = liveSession.questions || []; const next = liveSession.status === 'lobby' ? { status: 'question', question_index: 0, question_started_at: new Date().toISOString() } : liveSession.question_index >= all.length - 1 ? { status: 'finished' } : { status: 'question', question_index: liveSession.question_index + 1, question_started_at: new Date().toISOString() }; const { error } = await supabase.from('quiz_sessions').update(next).eq('id', liveSession.id); if (error) return window.alert(error.message); liveSession = { ...liveSession, ...next }; hostScreen(); }
 function makeCode() { return `TIMI${Math.random().toString(36).slice(2, 6).toUpperCase()}`; }
