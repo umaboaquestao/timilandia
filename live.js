@@ -1,8 +1,8 @@
-import { questions as defaultQuestions } from './quiz/src/questions.js';
+import { questions as defaultQuestions } from '../src/questions.js';
 
 const app = document.querySelector('#app');
 const projectUrl = 'https://zwyvepsxmerblrwfqtxw.supabase.co';
-const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ6d3l2ZXBzeG1lcmJsndmZxdHh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyNDI2NjMsImV4cCI6MjEwNDgxODY2M30.e1BjWlhEQc4zlc017wVVUzyZGDa6ODNiFPwc37qbNv8';
+const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3eXZlcHN4bWVyYmxyd2ZxdHh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyNDI2NjMsImV4cCI6MjEwNDgxODY2M30.e1BjWlhEQc4zlc017wVVUzyZGDa6ODNiFPwc37qbNv8';
 const adminPassword = '654321';
 let client; let liveSession; let player; let isHost = false; let liveChannel;
 
