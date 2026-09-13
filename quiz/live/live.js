@@ -4,14 +4,16 @@ const app = document.querySelector('#app');
 const projectUrl = 'https://zwyvepsxmerblrwfqtxw.supabase.co';
 const anonKey = 'sb_publishable_mUTBuM4Ycd6XyRf0I2hBbA_WMCda7eb';
 const adminPassword = '654321';
-let client; let liveSession; let player; let isHost = false; let liveChannel;
+let client; let liveSession; let player; let isHost = false; let liveChannel; let refreshTimer;
 
 const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
 const brand = () => '<header class="brand"><span class="brand-mark">T</span><div><strong>TiMI</strong><small>QUIZ LIVE</small></div></header>';
 async function db() { if (!client) { const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'); client = createClient(projectUrl, anonKey); } return client; }
 function questions() { try { const saved = JSON.parse(localStorage.getItem('timi-quiz-questions-v1')); return Array.isArray(saved) && saved.length ? saved : defaultQuestions; } catch { return defaultQuestions; } }
 function stopSubscription() { if (liveChannel) client.removeChannel(liveChannel); liveChannel = null; }
+function stopRefresh() { if (refreshTimer) clearInterval(refreshTimer); refreshTimer = null; }
 function makeCode() { return `TIMI${Math.random().toString(36).slice(2, 6).toUpperCase()}`; }
+function availableQuizzes() { const saved = questions(); return [{ id: 'original', name: 'Quiz TiMI original', description: 'As perguntas oficiais sobre mobilidade.', questions: defaultQuestions }, ...(saved !== defaultQuestions ? [{ id: 'browser', name: 'Quiz guardado neste browser', description: 'As perguntas configuradas no modo administração.', questions: saved }] : [])]; }
 
 function home(message = '') {
   stopSubscription(); isHost = false; liveSession = null; player = null;
@@ -31,18 +33,18 @@ function login(message = '') {
   document.querySelector('#host-login').addEventListener('submit', e => { e.preventDefault(); document.querySelector('#host-password').value === adminPassword ? hostSetup() : login('Senha incorreta.'); });
 }
 function hostSetup() {
-  isHost = true; app.innerHTML = `<div class="shell result-shell">${brand()}<main class="result-card"><div class="eyebrow">Anfitrião</div><h1>Criar sala</h1><p>As perguntas configuradas no modo admin serão usadas nesta sessão.</p><button id="create-room" class="primary-button">Criar sala live <b>→</b></button></main></div>`;
-  document.querySelector('#create-room').addEventListener('click', createRoom);
+  isHost = true; const quizzes = availableQuizzes(); app.innerHTML = `<div class="shell result-shell">${brand()}<main class="result-card"><div class="eyebrow">Anfitrião</div><h1>Criar sala</h1><p>Escolhe o quiz desta sessão.</p><form id="quiz-choice"><label for="quiz-select">Quiz</label><select id="quiz-select">${quizzes.map(quiz => `<option value="${quiz.id}">${escapeHtml(quiz.name)} (${quiz.questions.length} perguntas)</option>`).join('')}</select><p id="quiz-description" class="prototype-note">${escapeHtml(quizzes[0].description)}</p><button class="primary-button">Criar sala live <b>→</b></button></form></main></div>`;
+  const select = document.querySelector('#quiz-select'); const description = document.querySelector('#quiz-description'); select.addEventListener('change', () => { description.textContent = quizzes.find(quiz => quiz.id === select.value).description; }); document.querySelector('#quiz-choice').addEventListener('submit', createRoom);
 }
-async function createRoom() {
-  const supabase = await db(); const { data, error } = await supabase.from('quiz_sessions').insert({ room_code: makeCode(), host_token: crypto.randomUUID(), questions: questions(), status: 'lobby' }).select().single();
+async function createRoom(event) {
+  event.preventDefault(); const selected = availableQuizzes().find(quiz => quiz.id === document.querySelector('#quiz-select').value) || availableQuizzes()[0]; const supabase = await db(); const { data, error } = await supabase.from('quiz_sessions').insert({ room_code: makeCode(), host_token: crypto.randomUUID(), questions: selected.questions, status: 'lobby' }).select().single();
   if (error) return window.alert(error.message); liveSession = data; subscribe(); hostScreen();
 }
 async function subscribe() {
-  stopSubscription(); const supabase = await db(); liveChannel = supabase.channel(`timi-live-${liveSession.id}`)
+  stopSubscription(); stopRefresh(); const supabase = await db(); liveChannel = supabase.channel(`timi-live-${liveSession.id}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_sessions', filter: `id=eq.${liveSession.id}` }, payload => { liveSession = payload.new; isHost ? hostScreen() : playerScreen(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_players', filter: `session_id=eq.${liveSession.id}` }, () => { if (isHost) hostScreen(); })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_answers', filter: `session_id=eq.${liveSession.id}` }, () => { if (isHost) hostScreen(); }).subscribe();
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_answers', filter: `session_id=eq.${liveSession.id}` }, () => { if (isHost) hostScreen(); }).subscribe(); refreshTimer = setInterval(async () => { const { data } = await supabase.from('quiz_sessions').select('*').eq('id', liveSession.id).single(); if (data && (data.status !== liveSession.status || data.question_index !== liveSession.question_index)) { liveSession = data; isHost ? hostScreen() : playerScreen(); } }, 1500);
 }
 async function hostScreen() {
   const supabase = await db(); const { data: players = [] } = await supabase.from('quiz_players').select('*').eq('session_id', liveSession.id).order('score', { ascending: false }); const { data: answers = [] } = await supabase.from('quiz_answers').select('id').eq('session_id', liveSession.id).eq('question_index', liveSession.question_index);
