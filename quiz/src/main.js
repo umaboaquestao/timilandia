@@ -2,6 +2,7 @@ import { questions as defaultQuestions } from './questions.js';
 
 const app = document.querySelector('#app');
 const storageKey = 'timi-quiz-questions-v1';
+const sessionsKey = 'timi-quiz-sessions-v1';
 const adminPassword = '654321';
 const adminSessionKey = 'timi-quiz-admin-access';
 let quizQuestions = loadQuestions();
@@ -25,6 +26,9 @@ function loadQuestions() {
   return clone(defaultQuestions);
 }
 function saveQuestions() { localStorage.setItem(storageKey, JSON.stringify(quizQuestions)); }
+function loadSessions() { try { const saved = JSON.parse(localStorage.getItem(sessionsKey)); return Array.isArray(saved) ? saved : []; } catch { return []; } }
+function saveSession() { const name = window.prompt('Nome da sessão de quiz:', `Sessão ${new Date().toLocaleDateString('pt-PT')}`)?.trim(); if (!name) return; const sessions = loadSessions().filter(session => session.name !== name); sessions.push({ name, questions: clone(quizQuestions), updatedAt: new Date().toISOString() }); localStorage.setItem(sessionsKey, JSON.stringify(sessions)); document.querySelector('#save-status').textContent = `Sessão “${name}” guardada.`; }
+function exportSession() { const name = window.prompt('Nome do ficheiro da sessão:', 'timi-sessao-quiz')?.trim() || 'timi-sessao-quiz'; const payload = { type: 'timi-quiz-session', name, questions: quizQuestions, updatedAt: new Date().toISOString() }; const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `${name.replace(/[^a-z0-9-_]+/gi, '-')}.json`; link.click(); URL.revokeObjectURL(url); }
 function adminUrl() { const url = new URL(window.location.href); url.search = '?admin'; return url.href; }
 function quizUrl() { const url = new URL(window.location.href); url.search = ''; return url.href; }
 function brand() { return '<header class="brand"><span class="brand-mark">T</span><div><strong>TiMI</strong><small>QUIZ</small></div></header>'; }
@@ -63,9 +67,12 @@ function renderAdminLogin() {
 }
 function renderAdmin() {
   clearInterval(timerId);
-  app.innerHTML = `<div class="shell admin-shell">${brand()}<header class="admin-header"><div><div class="eyebrow">Área de administração</div><h1>Perguntas do quiz</h1><p>Altera, adiciona ou remove perguntas. Guarda no browser e exporta o ficheiro para publicar a versão final.</p></div><a class="secondary-button" href="${escapeHtml(quizUrl())}">Ver quiz →</a></header><div class="admin-actions"><button id="add-question" class="primary-button" type="button">+ Adicionar pergunta</button><button id="export-questions" class="secondary-button" type="button">Exportar perguntas</button><label class="secondary-button import-label">Importar perguntas<input id="import-questions" type="file" accept="application/json" hidden /></label><button id="reset-questions" class="text-button" type="button">Repor originais</button></div><p class="save-status" id="save-status">${quizQuestions.length} perguntas guardadas neste browser.</p><section id="question-editor" class="question-editor"></section></div>`;
+  app.innerHTML = `<div class="shell admin-shell">${brand()}<header class="admin-header"><div><div class="eyebrow">Área de administração</div><h1>Perguntas do quiz</h1><p>Altera, adiciona ou remove perguntas e guarda sessões para usar no Live.</p></div><a class="secondary-button" href="${escapeHtml(quizUrl())}">Ver quiz →</a></header><div class="admin-actions"><button id="add-question" class="primary-button" type="button">+ Adicionar pergunta</button><button id="save-session" class="secondary-button" type="button">Guardar sessão</button><button id="export-session" class="secondary-button" type="button">Exportar sessão JSON</button><label class="secondary-button import-label">Importar sessão JSON<input id="import-session" type="file" accept="application/json,.json" hidden /></label><button id="export-questions" class="secondary-button" type="button">Exportar perguntas</button><label class="secondary-button import-label">Importar perguntas<input id="import-questions" type="file" accept="application/json" hidden /></label><button id="reset-questions" class="text-button" type="button">Repor originais</button></div><p class="save-status" id="save-status">${quizQuestions.length} perguntas guardadas neste browser.</p><section id="question-editor" class="question-editor"></section></div>`;
   renderQuestionEditor();
   document.querySelector('#add-question').addEventListener('click', () => { quizQuestions.push({ question: 'Nova pergunta', answers: ['Resposta A', 'Resposta B', 'Resposta C', 'Resposta D'], correct: 0, time: 20 }); saveQuestions(); renderAdmin(); });
+  document.querySelector('#save-session').addEventListener('click', saveSession);
+  document.querySelector('#export-session').addEventListener('click', exportSession);
+  document.querySelector('#import-session').addEventListener('change', importSession);
   document.querySelector('#export-questions').addEventListener('click', exportQuestions);
   document.querySelector('#import-questions').addEventListener('change', importQuestions);
   document.querySelector('#reset-questions').addEventListener('click', () => { if (window.confirm('Repor as perguntas originais? As alterações deste browser serão substituídas.')) { quizQuestions = clone(defaultQuestions); saveQuestions(); renderAdmin(); } });
@@ -79,7 +86,9 @@ function renderQuestionEditor() {
 function handleEditorChange(event) { const field = event.target.dataset.field; if (!field) return; const index = Number(event.target.closest('.editor-card').dataset.index); const question = quizQuestions[index]; if (field === 'answer') question.answers[Number(event.target.dataset.answerIndex)] = event.target.value; else if (field === 'correct' || field === 'time') question[field] = Number(event.target.value); else question[field] = event.target.value; saveQuestions(); document.querySelector('#save-status').textContent = `Alterações guardadas · ${quizQuestions.length} perguntas.`; }
 function exportQuestions() { const blob = new Blob([JSON.stringify(quizQuestions, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'timi-quiz-perguntas.json'; link.click(); URL.revokeObjectURL(url); }
 function importQuestions(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { try { const loaded = JSON.parse(reader.result); const valid = Array.isArray(loaded) ? loaded.map(normalizeQuestion).filter(Boolean) : []; if (!valid.length || valid.length !== loaded.length) throw new Error(); quizQuestions = valid; saveQuestions(); renderAdmin(); } catch { window.alert('O ficheiro não contém perguntas válidas.'); } }; reader.readAsText(file); }
+function importSession(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { try { const loaded = JSON.parse(reader.result); const valid = Array.isArray(loaded) ? loaded : loaded?.questions; const questions = valid.map(normalizeQuestion).filter(Boolean); if (!questions.length || questions.length !== valid.length) throw new Error(); quizQuestions = questions; saveQuestions(); const sessions = loadSessions().filter(session => session.name !== loaded.name); sessions.push({ name: loaded.name || file.name.replace(/\.json$/i, ''), questions, updatedAt: new Date().toISOString() }); localStorage.setItem(sessionsKey, JSON.stringify(sessions)); renderAdmin(); } catch { window.alert('O ficheiro não contém uma sessão JSON válida.'); } }; reader.readAsText(file); }
 if (new URLSearchParams(window.location.search).has('admin')) {
   if (sessionStorage.getItem(adminSessionKey) === 'true') renderAdmin(); else renderAdminLogin();
 } else renderHome();
+
 
