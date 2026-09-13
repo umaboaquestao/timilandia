@@ -1,4 +1,4 @@
-import { questions as defaultQuestions } from './quiz/src/questions.js';
+import { questions as defaultQuestions } from '../src/questions.js';
 
 const app = document.querySelector('#app');
 const projectUrl = 'https://zwyvepsxmerblrwfqtxw.supabase.co';
@@ -51,7 +51,7 @@ async function hostScreen() {
   document.querySelector('#advance').addEventListener('click', advance);
 }
 async function advance() {
-  const supabase = await db(); const all = liveSession.questions || []; const next = liveSession.status === 'lobby' ? { status: 'question', question_index: 0, question_started_at: new Date().toISOString() } : liveSession.question_index >= all.length - 1 ? { status: 'finished' } : { status: 'question', question_index: liveSession.question_index + 1, question_started_at: new Date().toISOString() }; await supabase.from('quiz_sessions').update(next).eq('id', liveSession.id);
+  const supabase = await db(); const all = liveSession.questions || []; const next = liveSession.status === 'lobby' ? { status: 'question', question_index: 0, question_started_at: new Date().toISOString() } : liveSession.question_index >= all.length - 1 ? { status: 'finished' } : { status: 'question', question_index: liveSession.question_index + 1, question_started_at: new Date().toISOString() }; const { error } = await supabase.from('quiz_sessions').update(next).eq('id', liveSession.id); if (error) return window.alert(error.message); liveSession = { ...liveSession, ...next }; hostScreen();
 }
 function playerScreen() {
   if (liveSession.status === 'lobby') return wait('Entraste na sala!', 'A aguardar que o anfitrião comece.'); if (liveSession.status === 'finished') return wait('Quiz terminado', 'Obrigado por participares!'); const question = liveSession.questions?.[liveSession.question_index]; if (!question) return wait('A preparar', 'A próxima pergunta está a chegar.');
