@@ -1,4 +1,4 @@
-import { questions as defaultQuestions } from '../src/questions.js';
+import { questions as defaultQuestions } from './quiz/src/questions.js';
 
 const app = document.querySelector('#app');
 const projectUrl = 'https://zwyvepsxmerblrwfqtxw.supabase.co';
