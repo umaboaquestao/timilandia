@@ -50,7 +50,7 @@ async function hostScreen() {
   app.innerHTML = `<div class="shell"><header class="quiz-header">${brand()}<div class="player-chip"><span>Código</span><b>${escapeHtml(liveSession.room_code)}</b></div></header><main class="question-stage"><div class="eyebrow">${players.length} participantes</div><h1>${liveSession.status === 'lobby' ? 'Partilha o código e aguarda a equipa.' : escapeHtml(current?.question || 'Quiz terminado')}</h1><p class="prototype-note">${liveSession.status === 'question' ? `${answers.length} respostas recebidas` : 'Quando estiverem prontos, começa a primeira pergunta.'}</p><button id="advance" class="primary-button">${action} <b>→</b></button><div class="leaderboard"><h2>Classificação</h2><ol>${players.map(p => `<li><span>${escapeHtml(p.name)}</span><strong>${p.score}</strong></li>`).join('') || '<li>A aguardar participantes…</li>'}</ol></div></main></div>`;
   document.querySelector('#advance').addEventListener('click', advance);
 }
-async function advance() {
+async function advanceDuplicate() {
   const supabase = await db(); const all = liveSession.questions || []; const next = liveSession.status === 'lobby' ? { status: 'question', question_index: 0, question_started_at: new Date().toISOString() } : liveSession.question_index >= all.length - 1 ? { status: 'finished' } : { status: 'question', question_index: liveSession.question_index + 1, question_started_at: new Date().toISOString() }; const { error } = await supabase.from('quiz_sessions').update(next).eq('id', liveSession.id); if (error) return window.alert(error.message); liveSession = { ...liveSession, ...next }; hostScreen();
 }
 function playerScreen() {
