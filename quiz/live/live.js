@@ -13,7 +13,8 @@ function questions() { try { const saved = JSON.parse(localStorage.getItem('timi
 function stopSubscription() { if (liveChannel) client.removeChannel(liveChannel); liveChannel = null; }
 function stopRefresh() { if (refreshTimer) clearInterval(refreshTimer); refreshTimer = null; }
 function makeCode() { return `TIMI${Math.random().toString(36).slice(2, 6).toUpperCase()}`; }
-function availableQuizzes() { const saved = questions(); return [{ id: 'original', name: 'Quiz TiMI original', description: 'As perguntas oficiais sobre mobilidade.', questions: defaultQuestions }, ...(saved !== defaultQuestions ? [{ id: 'browser', name: 'Quiz guardado neste browser', description: 'As perguntas configuradas no modo administração.', questions: saved }] : [])]; }
+function loadSessions() { try { const saved = JSON.parse(localStorage.getItem('timi-quiz-sessions-v1')); return Array.isArray(saved) ? saved : []; } catch { return []; } }
+function availableQuizzes() { const saved = questions(); const sessions = loadSessions().filter(session => Array.isArray(session.questions) && session.questions.length); return [{ id: 'original', name: 'Quiz TiMI original', description: 'As perguntas oficiais sobre mobilidade.', questions: defaultQuestions }, ...(saved.length && JSON.stringify(saved) !== JSON.stringify(defaultQuestions) ? [{ id: 'browser', name: 'Perguntas atuais do browser', description: 'As perguntas atualmente configuradas.', questions: saved }] : []), ...sessions.map((session, index) => ({ id: `session-${index}`, name: session.name, description: `${session.questions.length} perguntas guardadas nesta sessão.`, questions: session.questions }))]; }
 
 function home(message = '') {
   stopSubscription(); isHost = false; liveSession = null; player = null;
