@@ -12,6 +12,7 @@ async function db() { if (!client) { const { createClient } = await import('http
 function questions() { try { const saved = JSON.parse(localStorage.getItem('timi-quiz-questions-v1')); return Array.isArray(saved) && saved.length ? saved : defaultQuestions; } catch { return defaultQuestions; } }
 function stopSubscription() { if (liveChannel) client.removeChannel(liveChannel); liveChannel = null; }
 function stopRefresh() { if (refreshTimer) clearInterval(refreshTimer); refreshTimer = null; }
+function sessionProgress(session) { return session.status === 'finished' ? 2 : session.status === 'question' ? 1 : 0; }
 function makeCode() { return `TIMI${Math.random().toString(36).slice(2, 6).toUpperCase()}`; }
 function loadSessions() { try { const saved = JSON.parse(localStorage.getItem('timi-quiz-sessions-v1')); return Array.isArray(saved) ? saved : []; } catch { return []; } }
 function availableQuizzes() { const saved = questions(); const sessions = loadSessions().filter(session => Array.isArray(session.questions) && session.questions.length); return [{ id: 'original', name: 'Quiz TiMI original', description: 'As perguntas oficiais sobre mobilidade.', questions: defaultQuestions }, ...(saved.length && JSON.stringify(saved) !== JSON.stringify(defaultQuestions) ? [{ id: 'browser', name: 'Perguntas atuais do browser', description: 'As perguntas atualmente configuradas.', questions: saved }] : []), ...sessions.map((session, index) => ({ id: `session-${index}`, name: session.name, description: `${session.questions.length} perguntas guardadas nesta sessão.`, questions: session.questions }))]; }
@@ -25,9 +26,9 @@ async function join(event) {
   event.preventDefault(); const name = document.querySelector('#player-name').value.trim(); const code = document.querySelector('#room-code').value.trim().toUpperCase(); const supabase = await db();
   const { data: found, error } = await supabase.from('quiz_sessions').select('*').eq('room_code', code).neq('status', 'finished').single();
   if (error || !found) return home('Não encontrámos essa sala. Confirma o código com o anfitrião.');
-  const { data: joined, error: joinError } = await supabase.from('quiz_players').insert({ session_id: found.id, name }).select().single();
+  const savedPlayer = JSON.parse(localStorage.getItem(`timi-live-player-${found.id}`) || 'null'); const { data: existing } = savedPlayer?.id ? await supabase.from('quiz_players').select('*').eq('id', savedPlayer.id).eq('session_id', found.id).single() : { data: null }; const { data: joined, error: joinError } = existing ? { data: existing, error: null } : await supabase.from('quiz_players').insert({ session_id: found.id, name }).select().single();
   if (joinError) return home('Esse nome já está na sala. Escolhe outro nome.');
-  liveSession = found; player = joined; subscribe(); playerScreen();
+  localStorage.setItem(`timi-live-player-${found.id}`, JSON.stringify({ id: joined.id, name: joined.name })); liveSession = found; player = joined; subscribe(); playerScreen();
 }
 function login(message = '') {
   stopSubscription(); app.innerHTML = `<div class="shell result-shell">${brand()}<main class="result-card"><div class="eyebrow">Área reservada</div><h1>Anfitrião</h1><p>Introduz a senha para criar e conduzir uma sala live.</p><form id="host-login"><label for="host-password">Senha</label><input id="host-password" type="password" inputmode="numeric" autofocus required/><p class="prototype-note">${escapeHtml(message)}</p><button class="primary-button">Entrar <b>→</b></button></form></main></div>`;
@@ -45,7 +46,7 @@ async function subscribe() {
   stopSubscription(); stopRefresh(); const supabase = await db(); liveChannel = supabase.channel(`timi-live-${liveSession.id}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_sessions', filter: `id=eq.${liveSession.id}` }, payload => { liveSession = payload.new; isHost ? hostScreen() : playerScreen(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_players', filter: `session_id=eq.${liveSession.id}` }, () => { if (isHost) hostScreen(); })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_answers', filter: `session_id=eq.${liveSession.id}` }, () => { if (isHost) hostScreen(); }).subscribe(); refreshTimer = setInterval(async () => { const { data } = await supabase.from('quiz_sessions').select('*').eq('id', liveSession.id).single(); if (data && (data.status !== liveSession.status || data.question_index !== liveSession.question_index)) { liveSession = data; isHost ? hostScreen() : playerScreen(); } }, 1500);
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_answers', filter: `session_id=eq.${liveSession.id}` }, () => { if (isHost) hostScreen(); }).subscribe(); refreshTimer = setInterval(async () => { const { data } = await supabase.from('quiz_sessions').select('*').eq('id', liveSession.id).single(); if (data && sessionProgress(data) >= sessionProgress(liveSession) && (data.status !== liveSession.status || data.question_index !== liveSession.question_index)) { liveSession = data; isHost ? hostScreen() : playerScreen(); } }, 1500);
 }
 async function hostScreen() {
   const supabase = await db(); const { data: players = [] } = await supabase.from('quiz_players').select('*').eq('session_id', liveSession.id).order('score', { ascending: false }); const { data: answers = [] } = await supabase.from('quiz_answers').select('id').eq('session_id', liveSession.id).eq('question_index', liveSession.question_index);
